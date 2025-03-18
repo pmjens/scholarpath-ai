@@ -23,8 +23,16 @@ function ScholarshipSearch() {
       setLoading(true);
       setError(null);
       
-      // For MVP, we'll use mock data that matches the Supabase schema
-      // In production, this would call the backend API
+      // Fetch real data from the backend API
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/scholarships/`);
+      setScholarships(response.data);
+      setLoading(false);
+    } catch (err) {
+      console.error("Error fetching scholarships:", err);
+      setError("Failed to fetch scholarships. Please try again.");
+      setLoading(false);
+      
+      // Fallback to mock data if API fails
       const mockScholarships = [
         {
           id: 1,
@@ -98,12 +106,7 @@ function ScholarshipSearch() {
         }
       ];
       
-      setScholarships(mockScholarships);
-      setLoading(false);
-    } catch (err) {
-      setError("Failed to fetch scholarships. Please try again.");
-      setLoading(false);
-      console.error(err);
+      setScholarships(mockScholarships) ;
     }
   };
   
@@ -119,19 +122,34 @@ function ScholarshipSearch() {
   };
   
   const handleSearch = () => {
-    // In production, this would call the backend API with filters
-    // For MVP, we'll filter the mock data client-side
+    // In a full implementation, we would pass the search term to the backend
+    // For now, we'll just filter client-side
     fetchScholarships();
   };
   
-  const handleVectorSearch = () => {
-    // In production, this would call the vector search API
-    // For MVP, we'll use the regular search
-    fetchScholarships();
+  const handleVectorSearch = async () => {
+    if (!searchTerm.trim()) {
+      alert("Please enter a search term for AI search");
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Call the vector search endpoint
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/search/?query=${encodeURIComponent(searchTerm)}`);
+      setScholarships(response.data);
+      setLoading(false);
+    } catch (err) {
+      console.error("Error performing vector search:", err);
+      setError("Failed to perform AI search. Please try again.");
+      setLoading(false);
+    }
   };
   
   const filteredScholarships = scholarships.filter(scholarship => {
-    // Search term filter
+    // Search term filter (only apply if not using vector search)
     if (searchTerm) {
       const searchFields = [
         scholarship.award_name,
@@ -169,10 +187,16 @@ function ScholarshipSearch() {
     return true;
   });
   
-  const saveScholarship = (id) => {
-    // In a real app, this would call an API to save the scholarship to the user's saved list
-    console.log(`Saving scholarship ${id}`);
-    alert(`Scholarship saved to your list!`);
+  const saveScholarship = async (id) => {
+    try {
+      // In a full implementation, this would call the backend to save
+      // For MVP, we'll just show a success message
+      console.log(`Saving scholarship ${id}`);
+      alert(`Scholarship saved to your list!`);
+    } catch (err) {
+      console.error("Error saving scholarship:", err);
+      alert("Failed to save scholarship. Please try again.");
+    }
   };
   
   return (
@@ -258,7 +282,7 @@ function ScholarshipSearch() {
                   <h6 className="card-subtitle mb-2 text-muted">{scholarship.organization}</h6>
                   <div className="d-flex justify-content-between my-2">
                     <span className="badge bg-success fs-6">{scholarship.funds}</span>
-                    <span className="badge bg-warning text-dark fs-6">Deadline: {new Date(scholarship.deadline).toLocaleDateString()}</span>
+                    <span className="badge bg-warning text-dark fs-6">Deadline: {scholarship.deadline ? new Date(scholarship.deadline).toLocaleDateString() : 'N/A'}</span>
                   </div>
                   <div className="mb-2">
                     <span className="badge bg-info me-1">{scholarship.level_of_study}</span>
