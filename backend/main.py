@@ -7,6 +7,7 @@ import os
 from dotenv import load_dotenv
 from supabase_client import supabase_service
 from fastapi.security import OAuth2PasswordBearer
+import psycopg2
 
 # Load environment variables
 load_dotenv()
@@ -29,7 +30,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 class ScholarshipBase(BaseModel):
     award_name: str
     organization: Optional[str] = None
-    level_of_study: Optional[str] = None
+    level_of_study: Optional[List[str]] = None  # Now treated as a list of strings
     award_type: Optional[str] = None
     purpose: Optional[str] = None
     focus: Optional[str] = None
@@ -72,13 +73,38 @@ async def get_scholarships(
     award_type: Optional[str] = None,
     search_term: Optional[str] = None
 ):
-    filters = {}
-    if level_of_study:
-        filters["level_of_study"] = level_of_study
-    if award_type:
-        filters["award_type"] = award_type
+    """
+    Fetch scholarships with optional filters, including proper handling of 'level_of_study' as an array.
+    """
+    query = "SELECT * FROM scholarships"
+    params = []
+
+    conditions = []
     
-    scholarships = supabase_service.get_scholarships(filters, search_term)
+    # Modify search to match any value inside the level_of_study array
+    if level_of_study:
+        conditions.append("%s = ANY(level_of_study)")
+        params.append(level_of_study)
+
+    if award_type:
+        conditions.append("award_type = %s")
+        params.append(award_type)
+
+    if search_term:
+        conditions.append("(award_name ILIKE %s OR purpose ILIKE %s)")
+        params.append(f"%{search_term}%")
+        params.append(f"%{search_term}%")
+
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+
+    try:
+        with supabase_service.get_connection().cursor() as cursor:
+            cursor.execute(query, params)
+            scholarships = cursor.fetchall()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
     return scholarships
 
 @app.get("/scholarships/{scholarship_id}", response_model=Dict[str, Any])
