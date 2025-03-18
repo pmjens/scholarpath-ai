@@ -78,7 +78,6 @@ async def get_scholarships(
     """
     query = "SELECT * FROM scholarships"
     params = []
-
     conditions = []
     
     # Modify search to match any value inside the level_of_study array
@@ -97,6 +96,10 @@ async def get_scholarships(
 
     if conditions:
         query += " WHERE " + " AND ".join(conditions)
+
+    # Debugging Output
+    print("Executing Query:", query)
+    print("With Params:", params)
 
     try:
         with supabase_service.get_connection().cursor() as cursor:
