@@ -2,15 +2,19 @@ from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
-from datetime import datetime, date
+from datetime import date
 import os
 from dotenv import load_dotenv
-from supabase_client import supabase_service
+from supabase import create_client
 from fastapi.security import OAuth2PasswordBearer
-import psycopg2
 
 # Load environment variables
 load_dotenv()
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 app = FastAPI(title="ScholarPath.ai API")
 
@@ -30,7 +34,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 class ScholarshipBase(BaseModel):
     award_name: str
     organization: Optional[str] = None
-    level_of_study: Optional[List[str]] = None  # Now treated as a list of strings
+    level_of_study: Optional[List[str]] = None
     award_type: Optional[str] = None
     purpose: Optional[str] = None
     focus: Optional[str] = None
@@ -62,7 +66,6 @@ class VectorSearchRequest(BaseModel):
 class SaveScholarshipRequest(BaseModel):
     scholarship_id: int
 
-# API endpoints
 @app.get("/")
 def read_root():
     return {"message": "Welcome to ScholarPath.ai API"}
@@ -73,82 +76,55 @@ async def get_scholarships(
     award_type: Optional[str] = None,
     search_term: Optional[str] = None
 ):
-    """
-    Fetch scholarships with optional filters, including proper handling of 'level_of_study' as an array.
-    """
-    query = "SELECT * FROM scholarships"
-    params = []
-    conditions = []
+    response = supabase.table("scholarships").select("*")
     
-    # Modify search to match any value inside the level_of_study array
     if level_of_study:
-        conditions.append("%s = ANY(level_of_study)")
-        params.append(level_of_study)
-
+        response = response.contains("level_of_study", [level_of_study])
+    
     if award_type:
-        conditions.append("award_type = %s")
-        params.append(award_type)
-
+        response = response.eq("award_type", award_type)
+    
     if search_term:
-        conditions.append("(award_name ILIKE %s OR purpose ILIKE %s)")
-        params.append(f"%{search_term}%")
-        params.append(f"%{search_term}%")
-
-    if conditions:
-        query += " WHERE " + " AND ".join(conditions)
-
-    # Debugging Output
-    print("Executing Query:", query)
-    print("With Params:", params)
-
-    try:
-        with supabase_service.get_connection().cursor() as cursor:
-            cursor.execute(query, params)
-            scholarships = cursor.fetchall()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
-
-    return scholarships
+        response = response.ilike("award_name", f"%{search_term}%")
+    
+    data = response.execute()
+    return data.get("data", [])
 
 @app.get("/scholarships/{scholarship_id}", response_model=Dict[str, Any])
 async def get_scholarship(scholarship_id: int):
-    scholarship = supabase_service.get_scholarship_by_id(scholarship_id)
-    if not scholarship:
+    response = supabase.table("scholarships").select("*").eq("id", scholarship_id).execute()
+    data = response.get("data", [])
+    if not data:
         raise HTTPException(status_code=404, detail="Scholarship not found")
-    return scholarship
+    return data[0]
 
 @app.post("/scholarships/search", response_model=List[Dict[str, Any]])
 async def search_scholarships(search_request: SearchRequest):
-    scholarships = supabase_service.get_scholarships(
-        search_request.filters.dict() if search_request.filters else None,
-        search_request.search_term
-    )
-    return scholarships
-
-@app.post("/scholarships/vector-search", response_model=List[Dict[str, Any]])
-async def vector_search_scholarships(search_request: VectorSearchRequest):
-    scholarships = supabase_service.search_scholarships_vector(search_request.query)
-    return scholarships
+    response = supabase.table("scholarships").select("*")
+    
+    if search_request.filters:
+        filters = search_request.filters.dict()
+        for key, value in filters.items():
+            if value:
+                response = response.eq(key, value)
+    
+    if search_request.search_term:
+        response = response.ilike("award_name", f"%{search_request.search_term}%")
+    
+    data = response.execute()
+    return data.get("data", [])
 
 @app.post("/scholarships/save")
 async def save_scholarship(request: SaveScholarshipRequest, token: str = Depends(oauth2_scheme)):
-    # In a real implementation, extract user_id from token
-    # For MVP, we'll use a mock user_id
-    user_id = "mock-user-id"
-    
-    result = supabase_service.save_scholarship(user_id, request.scholarship_id)
-    if not result:
-        raise HTTPException(status_code=400, detail="Failed to save scholarship")
+    user_id = "mock-user-id"  # Replace with actual user authentication logic
+    response = supabase.table("saved_scholarships").insert({"user_id": user_id, "scholarship_id": request.scholarship_id}).execute()
     return {"message": "Scholarship saved successfully"}
 
 @app.get("/scholarships/saved", response_model=List[Dict[str, Any]])
 async def get_saved_scholarships(token: str = Depends(oauth2_scheme)):
-    # In a real implementation, extract user_id from token
-    # For MVP, we'll use a mock user_id
     user_id = "mock-user-id"
-    
-    scholarships = supabase_service.get_saved_scholarships(user_id)
-    return scholarships
+    response = supabase.table("saved_scholarships").select("*").eq("user_id", user_id).execute()
+    return response.get("data", [])
 
 if __name__ == "__main__":
     import uvicorn
