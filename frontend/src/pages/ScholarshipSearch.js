@@ -24,7 +24,7 @@ function ScholarshipSearch() {
       setError(null);
       
       // Fetch real data from the backend API
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/scholarships/`);
+      const response = await axios.get("https://scholarpath-ai-backend.onrender.com/scholarships/");
       setScholarships(response.data);
       setLoading(false);
     } catch (err) {
