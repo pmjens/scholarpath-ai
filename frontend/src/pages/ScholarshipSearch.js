@@ -31,124 +31,28 @@ function ScholarshipSearch() {
       console.error("Error fetching scholarships:", err);
       setError("Failed to fetch scholarships. Please try again.");
       setLoading(false);
-      
-      // Fallback to mock data if API fails
-      const mockScholarships = [
-        {
-          id: 1,
-          award_name: "Future Leaders Scholarship",
-          organization: "National Education Foundation",
-          level_of_study: "Bachelor's Degree",
-          award_type: "Scholarship",
-          purpose: "Supporting future leaders in their academic journey",
-          focus: "Leadership",
-          qualifications: "Demonstrated leadership skills in community",
-          criteria: "Selection based on leadership potential and academic achievement",
-          funds: "$5,000",
-          deadline: "2025-06-15",
-          website: "https://example.com/future-leaders"
-        },
-        {
-          id: 2,
-          award_name: "STEM Excellence Award",
-          organization: "Tech Innovations Inc.",
-          level_of_study: "Bachelor's Degree",
-          award_type: "Scholarship",
-          purpose: "Promoting excellence in STEM fields",
-          focus: "Science, Technology, Engineering, Mathematics",
-          qualifications: "High GPA in STEM courses",
-          criteria: "Selection based on academic achievement in STEM subjects",
-          funds: "$7,500",
-          deadline: "2025-05-30",
-          website: "https://example.com/stem-excellence"
-        },
-        {
-          id: 3,
-          award_name: "Creative Arts Grant",
-          organization: "Arts Council",
-          level_of_study: "High School",
-          award_type: "Grant",
-          purpose: "Supporting creative expression in young artists",
-          focus: "Visual Arts, Music, Theater, Creative Writing",
-          qualifications: "Portfolio of creative work",
-          criteria: "Selection based on artistic talent and potential",
-          funds: "$3,000",
-          deadline: "2025-07-10",
-          website: "https://example.com/creative-arts"
-        },
-        {
-          id: 4,
-          award_name: "First Generation Scholarship",
-          organization: "Education Access Foundation",
-          level_of_study: "Associate Degree",
-          award_type: "Scholarship",
-          purpose: "Supporting first-generation college students",
-          focus: "General studies",
-          qualifications: "First in family to attend college",
-          criteria: "Selection based on academic promise and financial need",
-          funds: "$10,000",
-          deadline: "2025-04-30",
-          website: "https://example.com/first-gen"
-        },
-        {
-          id: 5,
-          award_name: "Community Service Scholarship",
-          organization: "Volunteer Association",
-          level_of_study: "High School",
-          award_type: "Scholarship",
-          purpose: "Recognizing dedication to community service",
-          focus: "Community Service",
-          qualifications: "Minimum 100 hours of community service",
-          criteria: "Selection based on impact of service and leadership",
-          funds: "$2,500",
-          deadline: "2025-06-01",
-          website: "https://example.com/community-service"
-        }
-      ];
-      
-      setScholarships(mockScholarships) ;
     }
   };
-  
+
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
   };
-  
+
   const handleFilterChange = (e) => {
     setFilters({
       ...filters,
       [e.target.id]: e.target.value
     });
   };
-  
+
   const handleSearch = () => {
-    // In a full implementation, we would pass the search term to the backend
-    // For now, we'll just filter client-side
     fetchScholarships();
   };
-  
-  const handleVectorSearch = async () => {
-    if (!searchTerm.trim()) {
-      alert("Please enter a search term for AI search");
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Call the vector search endpoint
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/search/?query=${encodeURIComponent(searchTerm)}`);
-      setScholarships(response.data);
-      setLoading(false);
-    } catch (err) {
-      console.error("Error performing vector search:", err);
-      setError("Failed to perform AI search. Please try again.");
-      setLoading(false);
-    }
-  };
-  
+
   const filteredScholarships = scholarships.filter(scholarship => {
+    // Log scholarship data for debugging
+    console.log("Scholarship Data:", scholarship);
+
     // Search term filter (only apply if not using vector search)
     if (searchTerm) {
       const searchFields = [
@@ -164,45 +68,36 @@ function ScholarshipSearch() {
         return false;
       }
     }
-    
-    // Level of study filter
-    if (filters.level_of_study !== 'all' && scholarship.level_of_study !== filters.level_of_study) {
+
+    // ✅ FIXED: Level of study filter to handle array format
+    if (
+      filters.level_of_study !== 'all' &&
+      (!scholarship.level_of_study || !scholarship.level_of_study.includes(filters.level_of_study))
+    ) {
       return false;
     }
-    
+
     // Award type filter
     if (filters.award_type !== 'all' && scholarship.award_type !== filters.award_type) {
       return false;
     }
-    
+
     // Funds filters - simplified for MVP
     if (filters.min_funds && parseFloat(scholarship.funds.replace(/[^0-9.]/g, '')) < parseFloat(filters.min_funds)) {
       return false;
     }
-    
+
     if (filters.max_funds && parseFloat(scholarship.funds.replace(/[^0-9.]/g, '')) > parseFloat(filters.max_funds)) {
       return false;
     }
-    
+
     return true;
   });
-  
-  const saveScholarship = async (id) => {
-    try {
-      // In a full implementation, this would call the backend to save
-      // For MVP, we'll just show a success message
-      console.log(`Saving scholarship ${id}`);
-      alert(`Scholarship saved to your list!`);
-    } catch (err) {
-      console.error("Error saving scholarship:", err);
-      alert("Failed to save scholarship. Please try again.");
-    }
-  };
-  
+
   return (
     <div>
       <h2 className="mb-4">Find Scholarships</h2>
-      
+
       <div className="row mb-4">
         <div className="col-md-6">
           <div className="input-group">
@@ -214,10 +109,9 @@ function ScholarshipSearch() {
               onChange={handleSearchChange}
             />
             <button className="btn btn-primary" type="button" onClick={handleSearch}>Search</button>
-            <button className="btn btn-secondary" type="button" onClick={handleVectorSearch}>AI Search</button>
           </div>
         </div>
-        
+
         <div className="col-md-6">
           <div className="d-flex">
             <select 
@@ -233,7 +127,7 @@ function ScholarshipSearch() {
               <option value="Graduate Degree">Graduate Degree</option>
               <option value="Vocational">Vocational</option>
             </select>
-            
+
             <select 
               className="form-select me-2" 
               id="award_type" 
@@ -246,7 +140,7 @@ function ScholarshipSearch() {
               <option value="Fellowship">Fellowship</option>
               <option value="Prize">Prize</option>
             </select>
-            
+
             <input 
               type="number" 
               className="form-control me-2" 
@@ -255,7 +149,7 @@ function ScholarshipSearch() {
               value={filters.min_funds}
               onChange={handleFilterChange}
             />
-            
+
             <input 
               type="number" 
               className="form-control" 
@@ -267,11 +161,11 @@ function ScholarshipSearch() {
           </div>
         </div>
       </div>
-      
+
       {loading && <div className="text-center my-4"><div className="spinner-border" role="status"></div></div>}
-      
+
       {error && <div className="alert alert-danger">{error}</div>}
-      
+
       <div className="row">
         {filteredScholarships.length > 0 ? (
           filteredScholarships.map(scholarship => (
@@ -282,10 +176,14 @@ function ScholarshipSearch() {
                   <h6 className="card-subtitle mb-2 text-muted">{scholarship.organization}</h6>
                   <div className="d-flex justify-content-between my-2">
                     <span className="badge bg-success fs-6">{scholarship.funds}</span>
-                    <span className="badge bg-warning text-dark fs-6">Deadline: {scholarship.deadline ? new Date(scholarship.deadline).toLocaleDateString() : 'N/A'}</span>
+                    <span className="badge bg-warning text-dark fs-6">
+                      Deadline: {scholarship.deadline ? new Date(scholarship.deadline).toLocaleDateString() : 'N/A'}
+                    </span>
                   </div>
                   <div className="mb-2">
-                    <span className="badge bg-info me-1">{scholarship.level_of_study}</span>
+                    {scholarship.level_of_study && scholarship.level_of_study.map(level => (
+                      <span key={level} className="badge bg-info me-1">{level}</span>
+                    ))}
                     <span className="badge bg-secondary">{scholarship.award_type}</span>
                   </div>
                   <p className="card-text"><strong>Purpose:</strong> {scholarship.purpose}</p>
@@ -293,7 +191,7 @@ function ScholarshipSearch() {
                   <p className="card-text"><strong>Qualifications:</strong> {scholarship.qualifications}</p>
                 </div>
                 <div className="card-footer bg-transparent d-flex justify-content-between">
-                  <button className="btn btn-outline-primary" onClick={() => saveScholarship(scholarship.id)}>Save</button>
+                  <button className="btn btn-outline-primary" onClick={() => alert(`Scholarship saved!`)}>Save</button>
                   <a href={scholarship.website} target="_blank" rel="noopener noreferrer" className="btn btn-primary">Apply Now</a>
                 </div>
               </div>
