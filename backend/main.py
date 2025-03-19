@@ -78,10 +78,8 @@ async def get_scholarships(
 ):
     response = supabase.table("scholarships").select("*")
     
-    if level_of_study and level_of_study.strip():  # Ensure it's not empty or None
-        print(f"🔍 Filtering scholarships where level_of_study contains: {level_of_study}")
-        level_of_study_filter = [level_of_study] if isinstance(level_of_study, str) else level_of_study
-        response = response.filter("level_of_study", "cs", level_of_study_filter)
+    if level_of_study:
+        response = response.filter("level_of_study", "cs", f"{{{level_of_study}}}")
     
     if award_type:
         response = response.eq("award_type", award_type)
@@ -95,7 +93,7 @@ async def get_scholarships(
 @app.get("/scholarships/{scholarship_id}", response_model=Dict[str, Any])
 async def get_scholarship(scholarship_id: int):
     response = supabase.table("scholarships").select("*").eq("id", scholarship_id).execute()
-    data = response.data if response.data else []
+    data = response.data
     if not data:
         raise HTTPException(status_code=404, detail="Scholarship not found")
     return data[0]
