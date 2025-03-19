@@ -88,7 +88,7 @@ async def get_scholarships(
         response = response.ilike("award_name", f"%{search_term}%")
     
     data = response.execute()
-    return data.get("data", [])
+    return data.data if data.data else []
 
 @app.get("/scholarships/{scholarship_id}", response_model=Dict[str, Any])
 async def get_scholarship(scholarship_id: int):
@@ -112,7 +112,7 @@ async def search_scholarships(search_request: SearchRequest):
         response = response.ilike("award_name", f"%{search_request.search_term}%")
     
     data = response.execute()
-    return data.get("data", [])
+    return data.data if data.data else []
 
 @app.post("/scholarships/save")
 async def save_scholarship(request: SaveScholarshipRequest, token: str = Depends(oauth2_scheme)):
