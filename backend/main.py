@@ -81,8 +81,13 @@ async def get_scholarships(
     if level_of_study:
         print(f"🔍 Searching for scholarships where level_of_study includes: {level_of_study}")
     
-    # JSONB data requires filtering differently
-    response = response.filter("level_of_study", "cs", [level_of_study])
+    if level_of_study and level_of_study.strip():  # Ensure it's not empty or None
+    print(f"🔍 Filtering scholarships where level_of_study contains: {level_of_study}")
+
+    # Convert input to an array if it's not already
+    level_of_study_filter = [level_of_study] if isinstance(level_of_study, str) else level_of_study
+    
+    response = response.filter("level_of_study", "cs", level_of_study_filter)
     
     if award_type:
         response = response.eq("award_type", award_type)
