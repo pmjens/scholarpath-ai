@@ -79,7 +79,10 @@ async def get_scholarships(
     response = supabase.table("scholarships").select("*")
     
     if level_of_study:
-        response = response.contains("level_of_study", [level_of_study])
+        print(f"🔍 Searching for scholarships where level_of_study includes: {level_of_study}")
+    
+    # JSONB data requires filtering differently
+    response = response.filter("level_of_study", "cs", [level_of_study])
     
     if award_type:
         response = response.eq("award_type", award_type)
