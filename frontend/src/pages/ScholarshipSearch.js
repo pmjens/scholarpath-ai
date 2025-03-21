@@ -12,24 +12,24 @@ function ScholarshipSearch() {
   const [scholarships, setScholarships] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  
-  // Fetch scholarships on component mount
+  const [isVectorSearch, setIsVectorSearch] = useState(false);
+
   useEffect(() => {
     fetchScholarships();
   }, []);
-  
+
   const fetchScholarships = async () => {
     try {
       setLoading(true);
       setError(null);
-      
-      // Fetch real data from the backend API
+      setIsVectorSearch(false);
+
       const response = await axios.get("https://scholarpath-ai-backend.onrender.com/scholarships/");
       setScholarships(response.data);
-      setLoading(false);
     } catch (err) {
       console.error("Error fetching scholarships:", err);
       setError("Failed to fetch scholarships. Please try again.");
+    } finally {
       setLoading(false);
     }
   };
@@ -46,77 +46,74 @@ function ScholarshipSearch() {
   };
 
   const handleSearch = () => {
-    fetchScholarships();
+    fetchScholarships(); // You can later add real search term support here
   };
 
   const handleVectorSearch = async () => {
-  if (!searchTerm.trim()) {
-    alert("Please enter a search term for AI search");
-    return;
-  }
-
-  try {
-    setLoading(true);
-    setError(null);
-
-    const response = await axios.post("https://scholarpath-ai-backend.onrender.com/scholarships/vector-search", {
-      query: searchTerm
-    });
-
-    setScholarships(response.data);
-    setLoading(false);
-  } catch (err) {
-    console.error("Error performing AI search:", err);
-    setError("Failed to perform AI search. Please try again.");
-    setLoading(false);
-  }
-};
-
-
-  const filteredScholarships = scholarships.filter(scholarship => {
-    // Log scholarship data for debugging
-    console.log("Scholarship Data:", scholarship);
-
-    // Search term filter (only apply if not using vector search)
-    if (searchTerm) {
-      const searchFields = [
-        scholarship.award_name,
-        scholarship.organization,
-        scholarship.purpose,
-        scholarship.focus,
-        scholarship.qualifications,
-        scholarship.criteria
-      ].filter(Boolean).join(' ').toLowerCase();
-      
-      if (!searchFields.includes(searchTerm.toLowerCase())) {
-        return false;
-      }
+    if (!searchTerm.trim()) {
+      alert("Please enter a search term for AI search");
+      return;
     }
 
-    // ✅ FIXED: Level of study filter to handle array format
-    if (
-      filters.level_of_study !== 'all' &&
-      (!scholarship.level_of_study || !scholarship.level_of_study.includes(filters.level_of_study))
-    ) {
-      return false;
-    }
+    try {
+      setLoading(true);
+      setError(null);
+      setIsVectorSearch(true);
 
-    // Award type filter
-    if (filters.award_type !== 'all' && scholarship.award_type !== filters.award_type) {
-      return false;
-    }
+      const response = await axios.post("https://scholarpath-ai-backend.onrender.com/scholarships/vector-search", {
+        query: searchTerm
+      });
 
-    // Funds filters - simplified for MVP
-    if (filters.min_funds && parseFloat(scholarship.funds.replace(/[^0-9.]/g, '')) < parseFloat(filters.min_funds)) {
-      return false;
+      setScholarships(response.data);
+    } catch (err) {
+      console.error("Error performing AI search:", err);
+      setError("Failed to perform AI search. Please try again.");
+    } finally {
+      setLoading(false);
     }
+  };
 
-    if (filters.max_funds && parseFloat(scholarship.funds.replace(/[^0-9.]/g, '')) > parseFloat(filters.max_funds)) {
-      return false;
-    }
+  const filteredScholarships = isVectorSearch
+    ? scholarships // Skip filtering when using AI search
+    : scholarships.filter(scholarship => {
+        if (searchTerm) {
+          const searchFields = [
+            scholarship.award_name,
+            scholarship.organization,
+            scholarship.purpose,
+            scholarship.focus,
+            scholarship.qualifications,
+            scholarship.criteria
+          ].filter(Boolean).join(' ').toLowerCase();
 
-    return true;
-  });
+          if (!searchFields.includes(searchTerm.toLowerCase())) {
+            return false;
+          }
+        }
+
+        if (
+          filters.level_of_study !== 'all' &&
+          (!scholarship.level_of_study || !scholarship.level_of_study.includes(filters.level_of_study))
+        ) {
+          return false;
+        }
+
+        if (filters.award_type !== 'all' && scholarship.award_type !== filters.award_type) {
+          return false;
+        }
+
+        if (filters.min_funds && scholarship.funds) {
+          const amount = parseFloat(scholarship.funds.replace(/[^0-9.]/g, ''));
+          if (amount < parseFloat(filters.min_funds)) return false;
+        }
+
+        if (filters.max_funds && scholarship.funds) {
+          const amount = parseFloat(scholarship.funds.replace(/[^0-9.]/g, ''));
+          if (amount > parseFloat(filters.max_funds)) return false;
+        }
+
+        return true;
+      });
 
   return (
     <div>
@@ -125,10 +122,10 @@ function ScholarshipSearch() {
       <div className="row mb-4">
         <div className="col-md-6">
           <div className="input-group">
-            <input 
-              type="text" 
-              className="form-control" 
-              placeholder="Search scholarships..." 
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Search scholarships..."
               value={searchTerm}
               onChange={handleSearchChange}
             />
@@ -139,9 +136,9 @@ function ScholarshipSearch() {
 
         <div className="col-md-6">
           <div className="d-flex">
-            <select 
-              className="form-select me-2" 
-              id="level_of_study" 
+            <select
+              className="form-select me-2"
+              id="level_of_study"
               value={filters.level_of_study}
               onChange={handleFilterChange}
             >
@@ -153,9 +150,9 @@ function ScholarshipSearch() {
               <option value="Vocational">Vocational</option>
             </select>
 
-            <select 
-              className="form-select me-2" 
-              id="award_type" 
+            <select
+              className="form-select me-2"
+              id="award_type"
               value={filters.award_type}
               onChange={handleFilterChange}
             >
@@ -166,19 +163,19 @@ function ScholarshipSearch() {
               <option value="Prize">Prize</option>
             </select>
 
-            <input 
-              type="number" 
-              className="form-control me-2" 
-              placeholder="Min $" 
+            <input
+              type="number"
+              className="form-control me-2"
+              placeholder="Min $"
               id="min_funds"
               value={filters.min_funds}
               onChange={handleFilterChange}
             />
 
-            <input 
-              type="number" 
-              className="form-control" 
-              placeholder="Max $" 
+            <input
+              type="number"
+              className="form-control"
+              placeholder="Max $"
               id="max_funds"
               value={filters.max_funds}
               onChange={handleFilterChange}
@@ -187,7 +184,7 @@ function ScholarshipSearch() {
         </div>
       </div>
 
-      {loading && <div className="text-center my-4"><div className="spinner-border" role="status"></div></div>}
+      {loading && <div className="text-center my-4"><div className="spinner-border" role="status" /></div>}
 
       {error && <div className="alert alert-danger">{error}</div>}
 
@@ -224,7 +221,7 @@ function ScholarshipSearch() {
           ))
         ) : (
           <div className="col-12 text-center">
-            <p>No scholarships found matching your criteria. Try adjusting your filters.</p>
+            <p>No scholarships found matching your criteria. Try adjusting your filters or AI search.</p>
           </div>
         )}
       </div>
