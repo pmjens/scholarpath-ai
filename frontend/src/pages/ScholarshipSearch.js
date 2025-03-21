@@ -49,6 +49,30 @@ function ScholarshipSearch() {
     fetchScholarships();
   };
 
+  const handleVectorSearch = async () => {
+  if (!searchTerm.trim()) {
+    alert("Please enter a search term for AI search");
+    return;
+  }
+
+  try {
+    setLoading(true);
+    setError(null);
+
+    const response = await axios.post("https://scholarpath-ai-backend.onrender.com/scholarships/vector-search", {
+      query: searchTerm
+    });
+
+    setScholarships(response.data);
+    setLoading(false);
+  } catch (err) {
+    console.error("Error performing AI search:", err);
+    setError("Failed to perform AI search. Please try again.");
+    setLoading(false);
+  }
+};
+
+
   const filteredScholarships = scholarships.filter(scholarship => {
     // Log scholarship data for debugging
     console.log("Scholarship Data:", scholarship);
