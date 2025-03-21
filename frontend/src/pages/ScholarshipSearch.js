@@ -108,7 +108,8 @@ function ScholarshipSearch() {
               value={searchTerm}
               onChange={handleSearchChange}
             />
-            <button className="btn btn-primary" type="button" onClick={handleSearch}>Search</button>
+            <button className="btn btn-primary me-2" type="button" onClick={handleSearch}>Search</button>
+            <button className="btn btn-secondary" type="button" onClick={handleVectorSearch}>AI Search</button>
           </div>
         </div>
 
