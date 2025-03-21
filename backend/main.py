@@ -128,9 +128,10 @@ async def vector_search_scholarships(search_request: VectorSearchRequest):
         "query_embedding": query_embedding,
         "match_threshold": 0.78,
         "match_count": 10
-    })
-
+    }).execute()
+    
     data = response.data
+
     if not data:
         raise HTTPException(status_code=404, detail="No matching scholarships found")
     return data
