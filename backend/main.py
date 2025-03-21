@@ -7,14 +7,17 @@ import os
 from dotenv import load_dotenv
 from supabase import create_client
 from fastapi.security import OAuth2PasswordBearer
+import openai
 
 # Load environment variables
 load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+openai.api_key = OPENAI_API_KEY
 
 app = FastAPI(title="ScholarPath.ai API")
 
@@ -46,7 +49,7 @@ class ScholarshipBase(BaseModel):
 
 class ScholarshipResponse(ScholarshipBase):
     id: int
-    
+
     class Config:
         orm_mode = True
 
@@ -77,16 +80,16 @@ async def get_scholarships(
     search_term: Optional[str] = None
 ):
     response = supabase.table("scholarships").select("*")
-    
+
     if level_of_study:
         response = response.filter("level_of_study", "cs", f"{{{level_of_study}}}")
-    
+
     if award_type:
         response = response.eq("award_type", award_type)
-    
+
     if search_term:
         response = response.ilike("award_name", f"%{search_term}%")
-    
+
     data = response.execute()
     return data.data if data.data else []
 
@@ -101,18 +104,36 @@ async def get_scholarship(scholarship_id: int):
 @app.post("/scholarships/search", response_model=List[Dict[str, Any]])
 async def search_scholarships(search_request: SearchRequest):
     response = supabase.table("scholarships").select("*")
-    
+
     if search_request.filters:
         filters = search_request.filters.dict()
         for key, value in filters.items():
             if value:
                 response = response.eq(key, value)
-    
+
     if search_request.search_term:
         response = response.ilike("award_name", f"%{search_request.search_term}%")
-    
+
     data = response.execute()
     return data.data if data.data else []
+
+@app.post("/scholarships/vector-search", response_model=List[Dict[str, Any]])
+async def vector_search_scholarships(search_request: VectorSearchRequest):
+    query_embedding = openai.embeddings.create(
+        input=search_request.query,
+        model="text-embedding-3-small"
+    ).data[0].embedding
+
+    response = supabase.rpc("match_scholarships", {
+        "query_embedding": query_embedding,
+        "match_threshold": 0.78,
+        "match_count": 10
+    })
+
+    data = response.data
+    if not data:
+        raise HTTPException(status_code=404, detail="No matching scholarships found")
+    return data
 
 @app.post("/scholarships/save")
 async def save_scholarship(request: SaveScholarshipRequest, token: str = Depends(oauth2_scheme)):
